@@ -5,71 +5,69 @@
 Amplify 앱 생성부터 Git 리포지토리 연동, 브랜치 연결, CI/CD 설정, 커스텀 도메인 매핑, 빌드 사양 정의, 웹훅 생성까지 포함됩니다.
 
 
-### 사전 준비 사항
-- 진행하기 전에 각 Git Provider에서 Personal access tokens을 발급받으셔야 합니다.
-- 토큰값을 가져와, Parameter Store에 등록한 후, 진행이 되어야합니다.
+## 사전 준비 사항
+#### Git Provider 액세스 토큰 발급 
+- 진행하기 전에 각 Git Provider에서 Personal access tokens을 발급받아야 합니다. 이 토큰은 Terraform이 Git 리포지토리에 접근하는 데 사용됩니다.
 - 아래는 각 Git Provider에서 토큰값을 받아오는 방법입니다.
 
 | Git provider |                                 Process                                  |
 |:------------:|:------------------------------------------------------------------------:|
 |    GitHub    | Your Profile -> Settings -> Developer Settings -> Personal Access Tokens |
-|  BitBucket   |                                  ::TODO                                  |
-|  CodeCommit  |                                  ::TODO                                  |                                   |
-|    GitLab    |                                  ::TODO                                  |                                   |
+|  BitBucket   | Your Profile -> View profile -> Manage Account -> Personal Access Tokens |
+|    GitLab    |               Your Profile -> Preferences -> Access Tokens               |                                         |
 
+>  Note: 토큰을 발급받을 때 최소한 repository 접근 권한을 부여해야 합니다.
+> 
+> Permissions
+> - Write access to files located at amplify.yml
+>
+> - Read access to code and metadata
+>
+> - Read and write access to checks, pull requests, and repository hooks
 
-### Checkout
+## Checkout
 ```
-# 리포지토리 클론
-git clone https://github.com/oni-jisookim/demo-amplify-terraform.git
+# git clone 
+git clone https://github.com/oniops/demo-amplify-terraform.git
 
 # 루트 디렉토리 환경 변수로 저장
 export BASE_DIR=$(git rev-parse --show-toplevel)
 
-# 모듈 디렉토리로 이동
+# move to dir
 cd $BASE_DIR/amplify/demo
 ```
 
+## 모듈 설치 및 설정
 ### Usage
-- amplify/demo/env/demo.tfvars
+- `demo.tfvars` 파일을 수정하여 애플리케이션 설정을 지정합니다.
 ```
 name        = "demo-amplify-app"                     # The name of your Amplify app
 domain_name = "example.com"                          # Your custom domain to connect
 github_url  = "https://github.com/org/repo"          # Your Git provider repository URL
-ssm_name    = "/amplify/github/personal-access-token" # SSM path to your Git provider's PAT
 ```
 
-- amplify/demo/main.tf
+- `main.tf` 파일을 수정하여 애플리케이션 설정을 지정합니다. 
 ```
 module "amplify" {
+  amplify_enabled  = true
+
   source = "../../modules/amplify"
 
   name        = var.name
-  description = "Managed via Terraform"
-  environment = "main"
-  label_order = ["name", "environment"]
-
-  amplify_enabled  = true
-  environment_name = "PROD"
-  platform         = "WEB"
 
   auto_branch_creation_config = {
     enable_auto_build = true
   }
-  enable_auto_branch_creation = true
+  enable_auto_branch_creation = false
   enable_basic_auth           = false
   enable_branch_auto_build    = true
   enable_branch_auto_deletion = true
 
-  auto_branch_creation_patterns = [
-    "main",
-    "dev"
-  ]
+  #auto_branch_creation_patterns = []
 
   domain_name          = [var.domain_name]
   amplify_repository   = var.github_url
-  access_token         = data.aws_ssm_parameter.this.value
-  deployment_artifacts = "demo-amplify-react"
+  access_token         = var.github_private_access_token
 
   build_spec = <<-EOT
     version: 1
@@ -89,28 +87,8 @@ module "amplify" {
         paths:
           - node_modules/**/*
   EOT
-  branches = [
-    {
-      branch_name   = "main"
-      display_name  = "main"
-      description   = "Main branch"
-      framework     = "React"
-      stage         = "PRODUCTION"
-      enable_auto_build = true
-      ttl           = 5
-      domain_prefix = null # apex domain
-    },
-    {
-      branch_name   = "dev"
-      display_name  = "dev"
-      description   = "Development branch"
-      framework     = "React"
-      stage         = "DEVELOPMENT"
-      enable_auto_build = true
-      ttl           = 5
-      domain_prefix = "dev"
-    }
-  ]
+
+  branches = var.branch
   custom_rules = [
     {
       source = "/<*>"
@@ -119,12 +97,13 @@ module "amplify" {
     }
   ]
 }
-
 ```
-
 
 ### Build & Deployment
 ```
+# Git 토큰 환경 변수 설정
+export TF_VAR_github_private_access_token="github_pat_xxxxxxxxxxxxx"
+
 # Init
 terraform init -upgrade
 
@@ -135,3 +114,13 @@ sh deploy.sh plan
 sh deploy.sh apply
 ```
 
+## 배포 후 작업
+#### GitHub 토큰 관리
+
+> **중요**: GitHub 개인 액세스 토큰(PAT)은 **오직 초기 설정 단계에서만 필요**합니다. Amplify가 정상적으로 프로비저닝되면 즉시 토큰을 삭제해야 합니다.
+
+#### 동작 방식:
+
+1. 초기 연결 단계 : GitHub 개인 액세스 토큰(PAT)은 오직 Terraform이 처음 Amplify 앱을 생성하고 GitHub 리포지토리와 연결할 때만 사용됩니다.
+2. GitHub App으로 자동 전환: 초기 설정이 완료되면 AWS Amplify는 자동으로 GitHub Apps 기능을 사용하여 리포지토리에 접근합니다. 이때부터 개인 액세스 토큰은 더 이상 필요하지 않습니다.
+3. GitHub App은 개인 액세스 토큰보다 훨씬 안전한 방식으로, 특정 리포지토리에만 제한된 접근 권한을 부여하고 필요한 권한만 정밀하게 설정할 수 있습니다.

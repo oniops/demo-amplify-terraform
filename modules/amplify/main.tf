@@ -48,6 +48,12 @@ resource "aws_amplify_app" "this" {
       stage                       = lookup(var.auto_branch_creation_config, "stage", null)
     }
   }
+
+  lifecycle {
+    ignore_changes = [
+      access_token
+    ]
+  }
 }
 
 resource "aws_amplify_branch" "this" {
@@ -60,7 +66,6 @@ resource "aws_amplify_branch" "this" {
   framework        = var.branches[count.index].framework
   stage            = var.branches[count.index].stage
   enable_auto_build = var.branches[count.index].enable_auto_build
-  ttl              = var.branches[count.index].ttl != null ? var.branches[count.index].ttl : 3600
 }
 
 resource "aws_amplify_domain_association" "this" {
@@ -75,6 +80,8 @@ resource "aws_amplify_domain_association" "this" {
       prefix      = sub_domain.value.domain_prefix != null ? sub_domain.value.domain_prefix : ""
     }
   }
+
+  depends_on = [aws_amplify_branch.this]
 }
 
 resource "aws_amplify_webhook" "main" {

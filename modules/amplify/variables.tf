@@ -4,24 +4,6 @@ variable "name" {
   description = "Name  (e.g. `app` or `cluster`)."
 }
 
-variable "environment" {
-  type        = string
-  default     = ""
-  description = "Environment (e.g. `prod`, `dev`, `staging`)."
-}
-
-variable "label_order" {
-  type        = list(any)
-  default     = []
-  description = "Label order, e.g. `name`,`application`."
-}
-
-variable "managedby" {
-  type        = string
-  default     = "hello@clouddrove.com"
-  description = "ManagedBy, eg 'CloudDrove'"
-}
-
 variable "amplify_repository" {
   type        = string
   default     = "https://github.com/clouddrove-sandbox/terraform-aws-amplify-app"
@@ -48,8 +30,9 @@ variable "domain_name" {
 
 variable "access_token" {
   type        = string
-  default     = "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"
+  default     = null
   description = "Personal access token for a third-party source"
+  sensitive   = true
 }
 
 variable "oauth_token" {
@@ -130,17 +113,6 @@ variable "amplify_enabled" {
   description = "Flag to control the amplify creation."
 }
 
-variable "environment_name" {
-  type        = string
-  default     = "prod"
-  description = " Amplify environment name for the pull request."
-}
-
-variable "deployment_artifacts" {
-  type        = string
-  default     = "app-example-deployment"
-  description = "Name of deployment artifacts."
-}
 variable "build_spec" {
   type        = string
   description = <<-EOT
@@ -148,11 +120,6 @@ variable "build_spec" {
     If not provided then it will use the `amplify.yml` at the root of your project / branch.
     EOT
   default     = null
-}
-variable "stack_name" {
-  type        = string
-  default     = "amplify-app-example"
-  description = "AWS CloudFormation stack name of a backend environment."
 }
 
 variable "custom_rules" {
@@ -182,7 +149,6 @@ variable "branches" {
     framework         = string
     stage             = string
     enable_auto_build = bool
-    ttl               = number
     domain_prefix     = string
   }))
 }
