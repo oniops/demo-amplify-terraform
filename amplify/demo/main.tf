@@ -21,12 +21,14 @@ module "amplify" {
   auto_branch_creation_config = {
     enable_auto_build = true
   }
-  enable_auto_branch_creation = false
+  enable_auto_branch_creation = true
   enable_basic_auth           = false
   enable_branch_auto_build    = true
   enable_branch_auto_deletion = true
 
-  #auto_branch_creation_patterns = []
+  auto_branch_creation_patterns = [
+    "main","dev"
+  ]
 
   domain_name          = [var.domain_name]
   amplify_repository   = var.github_url
